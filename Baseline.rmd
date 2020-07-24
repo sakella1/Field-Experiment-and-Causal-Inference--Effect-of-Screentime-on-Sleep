@@ -1,0 +1,256 @@
+---
+title: "w241_Baseline_Data"
+output: pdf_document
+---
+
+
+```{r}
+#install.packages("hrbrthemes", repos = "https://cinc.rud.is")
+```
+
+
+```{r setup, include=FALSE}
+library(data.table)
+library(readxl)
+library(stargazer)
+library(ggplot2)
+library(hrbrthemes)
+library(dplyr)
+library(tidyr)
+library(viridis)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## 1. Load and view data
+
+```{r}
+#install.packages("readxl")
+library(readxl)
+xl_data <- read_excel("./data/baseline.xlsx", 
+    sheet = "baseline")
+d <- data.table(xl_data)
+```
+
+### 1.1 Explore data
+
+
+```{r}
+head(d)
+```
+
+```{r}
+NROW(d)
+```
+
+```{r}
+names(d)
+```
+
+
+
+
+Testing Covariate Balance with F Test
+
+**Base Model**
+
+```{r}
+null_mod <- d[ , lm(Random_assignment ~ 1)]
+summary(null_mod)
+```
+
+*Model with specific covariates*
+
+
+```{r}
+second_mod <- d[ , lm(Random_assignment ~ 1
+                              + factor(Female)
+                              + Age
+                              + factor(Age_grp)
+                              + Children_binary 
+                              + Children_under_5_binary
+                              + house_type
+                              + neighborhood
+                              + neighborhood_noise_level
+                              + housemates
+                              + BASELINE_SLEEP_HOURS_NUM)]
+summary(second_mod)
+
+```
+
+
+**Covariate balance**
+
+***running anova with F test to check if the means between the two groups is significatly different. F test tells you whether a group of variables are jointly significant.***
+
+```{r}
+anova_mod <- anova(second_mod, null_mod, test = 'F')
+anova_mod
+```
+
+
+```{r}
+
+stargazer(anova_mod, type = "text")
+
+```
+
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_children_binary <- data.frame(Group = factor(unique(d$Random_assignment)), Number_Of_Children=d$Children_binary)
+# Interleaved histograms
+ggplot(df_children_binary, aes(x=Number_Of_Children, fill=Group)) +
+    geom_bar(binwidth=0.5, position="dodge") + ggtitle("Number Of Children")
+```
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_children_under_5 <- data.frame(Group = factor(unique(d$Random_assignment)), Number_Of_Children=d$Children_under_5_binary)
+# Interleaved histograms
+ggplot(df_children_under_5, aes(x=Number_Of_Children, fill=Group)) +
+    geom_bar(binwidth=0.5, position="dodge") + ggtitle("Number Of Children Under 5 Years of Age")
+```
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_age <- data.frame(Group = factor(unique(d$Random_assignment)), age=d$Age)
+
+# Density plots with semi-transparent fill
+ggplot(df_age, aes(x=age, fill=Group)) + geom_density(alpha=.3) + ggtitle("Age Distribution")
+```
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_gender <- data.frame(Group = factor(unique(d$Random_assignment)), gender=d$Female)
+# Interleaved histograms
+ggplot(df_gender, aes(x=gender, fill=Group)) +
+    geom_bar(binwidth=0.5, position="dodge") + ggtitle("Gender Distribution")
+```
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_house_type <- data.frame(Group = factor(unique(d$Random_assignment)), house_type=d$house_type)
+# Interleaved histograms
+ggplot(df_house_type, aes(x=house_type, fill=Group)) +
+    geom_bar(position="dodge") + ggtitle("House Type Distribution")
+```
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_neighborhood <- data.frame(Group = factor(unique(d$Random_assignment)), neighborhood=d$neighborhood)
+# Interleaved histograms
+ggplot(df_neighborhood, aes(x=neighborhood, fill=Group)) +
+    geom_bar(position="dodge") + ggtitle("Neighborhood Type Distribution")
+```
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_neighborhood_noise <- data.frame(Group = factor(unique(d$Random_assignment)), neighborhood_noise_level=d$neighborhood_noise_level)
+# Interleaved histograms
+ggplot(df_neighborhood_noise, aes(x=neighborhood_noise_level, fill=Group)) +
+    geom_bar(position="dodge") + ggtitle("Neighborhood Noise Level Distribution")
+```
+
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_user_screen <- data.frame(Group = factor(unique(d$Random_assignment)), screentime_user_type=d$BASELINE_USER_TYPE)
+# Interleaved histograms
+ggplot(df_user_screen, aes(x=screentime_user_type, fill=Group)) +
+    geom_bar(position="dodge") + ggtitle("Screentime User Type Distribution")
+```
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_age <- data.frame(Group = factor(unique(d$Random_assignment)), age=d$Age)
+
+# Density plots with semi-transparent fill
+ggplot(df_age, aes(x=age, fill=Group)) + geom_density(alpha=.3) + ggtitle("Age Distribution")
+```
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_sleep_quality <- data.frame(Group = factor(unique(d$Random_assignment)), sleep_quality=d$BASELINE_7_SLEEP_SCORE_POS_SCALE)
+# Interleaved histograms
+ggplot(df_sleep_quality, aes(x=sleep_quality, fill=Group)) +
+    geom_bar(position="dodge") + ggtitle("Sleep Quality Distribution")
+
+# Density plots with semi-transparent fill
+ggplot(df_sleep_quality, aes(x=sleep_quality, fill=Group)) + geom_density(alpha=.3) + ggtitle("Sleep Quality Distribution")
+```
+
+
+```{r}
+# Find the mean of each group
+set.seed(1234)
+df_interrupted_sleep_quality <- data.frame(Group = factor(unique(d$Random_assignment)), interrupted_sleep_quality=d$BASELINE_MATRIX_SLEEP_SCORE)
+# Interleaved histograms
+ggplot(df_interrupted_sleep_quality, aes(x=interrupted_sleep_quality, fill=Group)) +
+    geom_bar(position="dodge") + ggtitle("Interrupted Sleep Quality Distribution")
+
+# Density plots with semi-transparent fill
+ggplot(df_interrupted_sleep_quality, aes(x=interrupted_sleep_quality, fill=Group)) + geom_density(alpha=.3) + ggtitle("Interrupted Sleep Quality Distribution")
+```
+
+
+
+```{r}
+#install.packages("cobalt")
+library("cobalt")
+```
+
+
+```{r}
+covs <- subset(d, select = c("Children_binary", "Children_under_5_binary", "Age", "Female", "highest_education_num", "employment_status_numeric", "neighborhood_num", "house_type_num", "housemates_numeric", "neighborhood_noise_level_num", "BASELINE_Screentime", "BASELINE_MATRIX_SLEEP_SCORE", "BASELINE_7_SLEEP_SCORE_POS_SCALE","BASELINE_SLEEP_HOURS_NUM"))
+
+bal.tab(covs, treat = d$Random_assignment, un=TRUE, stats = c("mean.diffs", "variance.ratios"))
+```
+
+```{r}
+summary(covs)
+```
+
+
+```{r}
+#install.packages("MatchIt")
+library("MatchIt")
+covs2 <- subset(d, select = c("Random_assignment", "Children_binary", "Children_under_5_binary", "Age", "Female", "highest_education_num", "employment_status_numeric", "neighborhood_num", "house_type_num", "housemates_numeric", "neighborhood_noise_level_num", "BASELINE_Screentime", "BASELINE_MATRIX_SLEEP_SCORE", "BASELINE_7_SLEEP_SCORE_POS_SCALE","BASELINE_SLEEP_HOURS_NUM"))
+
+m.out <- matchit(f.build("Random_assignment", "Children_binary"), data=covs2)
+love.plot(m.out, binary="std", threshold = c(m=.1))
+
+```
+
+
+```{r}
+#install.packages("MatchIt")
+library("MatchIt")
+
+m.out <- matchit(f.build(Random_assignment ~ Children_binary + Children_under_5_binary + Age + Female + highest_education_num + employment_status_numeric + neighborhood_num + house_type_num + housemates_numeric + neighborhood_noise_level_num + BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE+ BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM), data=d, method = "nearest", replace=TRUE)
+#love.plot(m.out, binary="std", threshold = c(m=.1))
+
+```
+```{r}
+m.out <- matchit(f.build("Random_assignment", covs), data=d, method = "nearest", replace=TRUE)
+#love.plot(m.out, binary="std", threshold = c(m=.1))
+```
+
+

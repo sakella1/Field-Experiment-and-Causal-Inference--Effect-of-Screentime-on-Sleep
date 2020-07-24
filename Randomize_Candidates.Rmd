@@ -1,0 +1,61 @@
+---
+title: "Randomize_Candidates"
+author: "Anish Philip"
+date: "3/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+```
+
+## 1. Load data
+
+Load baseline data
+
+```{r}
+d <- read.table("./data/Rand_input.txt", fill = TRUE, header = TRUE, sep='\t')
+d <- data.table(d)[order(d$Block_ID_123_C)]
+head(d)
+```
+
+## 2. Populate Week1 column with test and control-placebo flags
+
+Week 2, if implemented, will be the toggle of week 1 column and Block_ID_123_C is the final block variable
+
+```{r}
+d_block_hist <- d[, .(distinct_candidate = .N), by = Block_ID_123_C]
+```
+
+```{r}
+d$Block_ID_123_C
+```
+
+```{r}
+d_block_hist
+```
+
+```{r}
+block_rand_flag = c()
+for (i in d_block_hist$distinct_candidate) {
+block_rand_flag = c(block_rand_flag, sample(c(rep(0,round(i/2)),rep(1,round(i/2))))[1:i])
+}
+```
+
+```{r}
+block_rand_flag
+```
+
+## 3. Set random assign flag into table and save
+
+```{r}
+d$Week1 <- block_rand_flag
+d$Week2 <- 1-block_rand_flag
+write.table(d, file = "data/randomiz_assignment.txt", sep = "\t",
+            row.names = FALSE, col.names = TRUE)
+```
+
+```{r}
+d[, .(test = sum(ifelse(Week1 == 1, 1, 0)), ctrl= sum(ifelse(Week1 == 0, 1, 0))), by = Block_ID_123_C]
+```

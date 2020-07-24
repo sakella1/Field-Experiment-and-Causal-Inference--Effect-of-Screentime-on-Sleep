@@ -1,0 +1,84 @@
+---
+title: "Calculate Power and N size of experimemt"
+author: "Anish; Swati; Sarah"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+```
+
+## Simulate data with some effect
+
+```{r}
+sample_size = 15
+effect_detected = 0
+alpha = 0.05
+simulate_study_lm <- function(sample_size, effect_detected, alpha)
+{
+  treatment_units <- c()
+  control_units <- c()
+  treatment_units <- myClip(rbinom(sample_size, 10, 0.5)+1+effect_detected,1,10)
+  control_units <- myClip(rbinom(sample_size, 10, 0.5)+1,1,10)
+  all_units <- c(control_units, treatment_units)
+  treatment_vector <- c(rep(0, sample_size), rep(1, sample_size))
+  mod <- lm(all_units ~ treatment_vector)
+  p_value <- summary(lm(all_units ~ treatment_vector))$coefficients[2, 4]
+  effect_detected <- p_value < alpha
+  return(effect_detected)
+}
+```
+
+## Calculate Power by running the experiment 1000 times
+
+```{r}
+get_power <- function(sample_size, effect_detected, alpha) {
+  return(mean(replicate(1000, 
+                        simulate_study_lm(sample_size, effect_detected, alpha))) )
+}
+```
+
+## sample size vs power (alpa = 0.1; effect size = 0.1)
+```{r}
+p_n <- c()
+for(i in c(20:30)) {
+  t <- get_power(sample_size = i, effect_detected = 0.1, alpha = 0.1)
+  p_n <- append(p_n,t)
+}
+p1 <- ggplot() + geom_line(aes(y = p_n, x = c(20:30)),)
+p1
+```
+
+## sample size vs power (alpa = 0.05; effect size = 0.75)
+```{r}
+p_n <- c()
+for(i in c(20:30)) {
+  t <- get_power(sample_size = i, effect_detected = 0.75, alpha = 0.05)
+  p_n <- append(p_n,t)
+}
+p1 <- ggplot() + geom_line(aes(y = p_n, x = c(20:30)),)
+p1
+```
+
+## sample size vs power (effect_detected = 1; alpa = 0.05)
+```{r}
+p_n <- c()
+for(i in c(20:30)) {
+  t <- get_power(sample_size = i, effect_detected = 1, alpha = 0.05)
+  p_n <- append(p_n,t)
+}
+p1 <- ggplot() + geom_line(aes(y = p_n, x = c(20:30)),)
+p1
+```
+
+## clip function 
+
+```{r pressure, echo=FALSE}
+myClip <- function(x, a, b) {
+    ifelse(x <= a,  a, ifelse(x >= b, b, x))
+}
+myClip(x = 0:10, a = 3,b = 7)
+```
+

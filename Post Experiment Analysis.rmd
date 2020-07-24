@@ -1,0 +1,469 @@
+---
+title: "w241_Final_Missing_Data"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(data.table)
+library(readxl)
+library(stargazer)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## 1. Load and view data
+
+```{r}
+library(readxl)
+xl_data <- read_excel("C:/Users/kfpj179/Desktop/w_241_Final_v0.6.xlsx", 
+    sheet = "Morning Responsiveness Study Ce")
+d <- data.table(xl_data)
+```
+
+### 1.1 Explore data
+```{r}
+d <- d[d$Progress==100][,c('FullName','Random_assignment','Treatment','Exp_week','Day','READING_binary','Compliance_Binary','LAST_ACTIVITY_binary','RECALL_SCORE','ELECTRONICS_15_MIN_BEFORE_binary','BED_TIME_NUM','WAKE_UP_TIME_NUM','SLEEP_HOURS_NUM','TIME_TO_SLEEP_SCORE','AWAKE_TIME_SCORE','EARLY_WAKE_TIME_SCORE','MATRIX_SLEEP_SCORE','SLEEP_SCORE','SLEEP_SCORE_POS_SCALE','APPLE_WATCH_SLEEP_SCORE','BASELINE_TIME_TO_SLEEP_SCORE','BASELINE_AWAKE_TIME_SCORE','BASELINE_EARLY_WAKE_TIME_SCORE','BASELINE_MATRIX_SLEEP_SCORE','BASELINE_7_SLEEP_SCORE','BASELINE_7_SLEEP_SCORE_POS_SCALE','BASELINE_ELECTRONICS_15_MIN_BEFORE_binary','Children_binary','Children_under_5_binary','Block_ID_num','BASELINE_BED_TIME_NUM','BASELINE_Screentime','BASELINE_Perc_Gap_Bedtime_7','Children','Children_under_5','Female','Age','Age_grp','house_type_num','neighborhood_num','neighborhood_noise_level_num','highest_education_num','employment_status_numeric','job_title','housemates_numeric','BASELINE_WAKE_UP_TIME_NUM','BASELINE_SLEEP_HOURS_NUM','READING_WILLINGNESS')]
+```
+
+```{r}
+stargazer(d,type="text")
+```
+### 1.2 Create table with baseline
+```{r}
+d_baseline <- NULL
+d_baseline <- unique(d[,.(FullName,Children_binary,Random_assignment,Children_under_5_binary,Block_ID_num,BASELINE_BED_TIME_NUM,BASELINE_Screentime,BASELINE_Perc_Gap_Bedtime_7,Children,Children_under_5,Female,Age,Age_grp,house_type_num,neighborhood_num,neighborhood_noise_level_num,highest_education_num,employment_status_numeric,job_title,housemates_numeric,BASELINE_WAKE_UP_TIME_NUM,BASELINE_SLEEP_HOURS_NUM,BASELINE_TIME_TO_SLEEP_SCORE,BASELINE_AWAKE_TIME_SCORE, BASELINE_EARLY_WAKE_TIME_SCORE, BASELINE_7_SLEEP_SCORE_POS_SCALE,BASELINE_MATRIX_SLEEP_SCORE,BASELINE_ELECTRONICS_15_MIN_BEFORE_binary,BASELINE_7_SLEEP_SCORE_CAT = ifelse(BASELINE_7_SLEEP_SCORE_POS_SCALE<4,0,1))])
+```
+
+```{r}
+d_comp <- NULL
+d_comp <- d[,.(FullName, SLEEP_SCORE_POS_SCALE_AVG=mean(SLEEP_SCORE_POS_SCALE), 
+               MATRIX_SLEEP_SCORE_AVG=mean(MATRIX_SLEEP_SCORE), compliance = sum(Compliance_Binary), 
+               treat_compliance = sum(ifelse(Treatment==1,Compliance_Binary,0)),
+               ctrl_compliance = sum(ifelse(Treatment==0,Compliance_Binary,0)),
+            missing_data = 10-.N, treat_missing_data = 5-sum(ifelse(Treatment==1,1,0)),
+               ctrl_missing_data = 5-sum(ifelse(Treatment==0,1,0))), by=FullName]
+setkey(d_baseline,FullName)
+setkey(d_comp,FullName)
+d_baseline <- d_baseline[d_comp, nomatch=0]
+stargazer(d_baseline,type="text")
+```
+### 1.3 Get correlation between compliance score out of 10 and relevant variables
+```{r warning=FALSE}
+cor(d_baseline[,.(compliance, treat_compliance, ctrl_compliance, SLEEP_SCORE_POS_SCALE_AVG, MATRIX_SLEEP_SCORE_AVG, Children_binary, Children_under_5_binary, Block_ID_num,BASELINE_BED_TIME_NUM,BASELINE_Screentime,BASELINE_Perc_Gap_Bedtime_7,Female,Age,house_type_num,neighborhood_num,neighborhood_noise_level_num,highest_education_num,employment_status_numeric,housemates_numeric,BASELINE_WAKE_UP_TIME_NUM, BASELINE_TIME_TO_SLEEP_SCORE, BASELINE_AWAKE_TIME_SCORE, BASELINE_EARLY_WAKE_TIME_SCORE, BASELINE_SLEEP_HOURS_NUM, BASELINE_MATRIX_SLEEP_SCORE, BASELINE_7_SLEEP_SCORE_POS_SCALE,Random_assignment)], use = "complete.obs")[,1:3]
+#, BASELINE_MATRIX_SLEEP_SCORE, BASELINE_7_SLEEP_SCORE_POS_SCALE
+```
+## 2. Compliance sensitivity analysis
+```{r warning = FALSE}
+stargazer(lm(compliance ~ BASELINE_Screentime, d_baseline),
+          #lm(compliance ~ BASELINE_Screentime + Children_binary, d_baseline),
+          lm(compliance ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_baseline),
+          lm(compliance ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE, d_baseline),
+          lm(compliance ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_WAKE_UP_TIME_NUM, d_baseline),
+          lm(compliance ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_WAKE_UP_TIME_NUM + Age, d_baseline),
+          type="text")
+```
+
+```{r warning = FALSE}
+stargazer(lm(treat_compliance ~ BASELINE_Screentime, d_baseline),
+          lm(treat_compliance ~ BASELINE_Screentime + Children_binary, d_baseline),
+          lm(treat_compliance ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_baseline),
+          lm(treat_compliance ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE+Female+housemates_numeric, d_baseline),
+          #lm(treat_compliance ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_WAKE_UP_TIME_NUM, d_baseline),
+          #lm(treat_compliance ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE + Female + housemates_numeric, d_baseline),
+          type="text")
+```
+
+```{r warning = FALSE}
+stargazer(lm(ctrl_compliance ~ BASELINE_MATRIX_SLEEP_SCORE, d_baseline),
+          lm(ctrl_compliance ~ BASELINE_MATRIX_SLEEP_SCORE + BASELINE_Screentime + Children_binary, d_baseline),
+          lm(ctrl_compliance ~ BASELINE_Screentime + Children_binary + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_MATRIX_SLEEP_SCORE, d_baseline),
+          #lm(ctrl_compliance ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE, d_baseline),
+          lm(ctrl_compliance ~ BASELINE_Screentime + Children_binary + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_WAKE_UP_TIME_NUM + Age, d_baseline),
+          lm(ctrl_compliance ~ BASELINE_MATRIX_SLEEP_SCORE + Age, d_baseline),
+          type="text")
+```
+
+```{r warning = FALSE}
+stargazer(lm(compliance ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_WAKE_UP_TIME_NUM + factor(BASELINE_TIME_TO_SLEEP_SCORE), d_baseline),
+          lm(treat_compliance ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE+Female+housemates_numeric, d_baseline),
+          lm(ctrl_compliance ~ BASELINE_MATRIX_SLEEP_SCORE + Age, d_baseline),
+          type="text", single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser")
+          #,covariate.labels = c('Baseline screentime', 'Children (1-Yes, 0-No)', 'Baseline sleep matrix score', 'Baseline Wakeup time', 'Baseline Sleep score (1-7)', '# of housemate', #'Baseline # of Sleep hrs', 'Neighbourhood Noise (1-3)', 
+#                     'Age: 18-25', 'Age: 26-35', 'Age: 36-45', 'Female', 'Week 2', 'Treatment:Week 2','Treatment: Age 18-25', 'Treatment: Age 26-35', #'Treatment: Age 36-45', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Treatment: Day 2', 'Treatment: Day 3', 'Treatment: Day 4', 'Treatment: Day #5'),dep.var.labels="Self reported sleep score (1-7)",model.numbers=FALSE,column.labels = c('Basic Model', 'Treatment:Week', 'Treatment:Age', 'Treatment:Days')
+)
+```
+
+## 3. Missing data sensitivity analysis
+```{r warning = FALSE}
+stargazer(lm(missing_data ~ BASELINE_Screentime, d_baseline),
+          lm(missing_data ~ BASELINE_Screentime + Children_binary, d_baseline),
+          #lm(missing_data ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_baseline),
+          lm(missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE, d_baseline),
+          lm(missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + housemates_numeric, d_baseline),
+          #lm(missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_WAKE_UP_TIME_NUM + Female, d_baseline),
+          type="text")
+```
+
+```{r warning = FALSE}
+stargazer(lm(treat_missing_data ~ BASELINE_Screentime, d_baseline),
+          lm(treat_missing_data ~ BASELINE_Screentime + Children_binary, d_baseline),
+          #lm(missing_data ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_baseline),
+          lm(treat_missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE, d_baseline),
+          #lm(missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_baseline),
+          lm(treat_missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + housemates_numeric, d_baseline),
+          type="text")
+```
+
+```{r warning = FALSE}
+stargazer(lm(ctrl_missing_data ~ BASELINE_Screentime, d_baseline),
+          lm(ctrl_missing_data ~ BASELINE_Screentime + Children_binary, d_baseline),
+          #lm(missing_data ~ BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_baseline),
+          lm(ctrl_missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE, d_baseline),
+          #lm(missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_baseline),
+          lm(ctrl_missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + housemates_numeric, d_baseline),
+          type="text")
+```
+
+```{r warning = FALSE}
+stargazer(lm(missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + housemates_numeric, d_baseline),
+          lm(treat_missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + housemates_numeric, d_baseline),
+          lm(ctrl_missing_data ~ BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + housemates_numeric, d_baseline),
+          type="text", single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser"),
+          covariate.labels = c('Baseline screentime', 'Children (1-Yes, 0-No)', 'Baseline sleep matrix score', '# of housemate'),dep.var.labels=c("Missing Outcome", "Missing Treatment", "Missing Control"),model.numbers=FALSE
+          #,column.labels = c('Basic Model', 'Treatment:Week', 'Treatment:Age', 'Treatment:Days')
+          )
+```
+
+## 4. Create records for missing dates
+```{r}
+d_result<-NULL
+d_result <- d[,.(FullName,Treatment,Exp_week,Day,Compliance_Binary,SLEEP_SCORE_POS_SCALE,MATRIX_SLEEP_SCORE,BED_TIME_NUM,WAKE_UP_TIME_NUM,	SLEEP_HOURS_NUM,TIME_TO_SLEEP_SCORE,AWAKE_TIME_SCORE,EARLY_WAKE_TIME_SCORE)]
+stargazer(d_result,type="text")
+```
+
+```{r}
+d_complete <- NULL
+d_complete <- data.table(
+  Name = rep(d_baseline$FullName, 10),
+  week = c(rep(1,length(d_baseline$FullName)*5),rep(2,length(d_baseline$FullName)*5)),
+  day_N = c(rep(1,length(d_baseline$FullName)),rep(2,length(d_baseline$FullName)),rep(3,length(d_baseline$FullName)),
+          rep(4,length(d_baseline$FullName)),rep(5,length(d_baseline$FullName)),
+          rep(1,length(d_baseline$FullName)),rep(2,length(d_baseline$FullName)),rep(3,length(d_baseline$FullName)),
+          rep(4,length(d_baseline$FullName)),rep(5,length(d_baseline$FullName)))
+)
+```
+
+```{r}
+setkey(d_complete,Name)
+d_flag <- NULL
+d_flag <- unique(d[,c('FullName','Random_assignment')])
+setkey(d_flag,FullName)
+d_complete <- d_complete[d_flag]
+d_complete <- d_complete[,.(Name, week, day_N, Treatment=ifelse(week==1,Random_assignment,1-Random_assignment))]
+```
+
+```{r}
+#setkeyv(d_complete,c('Name','week','day_N','Treatment'))
+#setkeyv(d_result,c('FullName','Corrected_week','Day','Treatment'))
+d_result_MV <- NULL
+d_result_MV <- merge(d_complete,d_result,by.x=c('Name','week','day_N','Treatment'),
+                     by.y=c('FullName','Exp_week','Day','Treatment'), all=TRUE)[,.(Name,week,day_N,Treatment,comp = ifelse(is.na(SLEEP_SCORE_POS_SCALE),0,Compliance_Binary), attr = ifelse(is.na(SLEEP_SCORE_POS_SCALE),1,0),
+SLEEP_SCORE_POS_SCALE, MATRIX_SLEEP_SCORE,BED_TIME_NUM,WAKE_UP_TIME_NUM,SLEEP_HOURS_NUM,TIME_TO_SLEEP_SCORE,AWAKE_TIME_SCORE,EARLY_WAKE_TIME_SCORE)]
+```
+
+```{r}
+setkey(d_result_MV,Name)
+setkey(d_baseline,FullName)
+d_result_MV <- d_result_MV[d_baseline]
+```
+
+```{r}
+d_day_flag <- NULL
+d_day_flag <- d_result_MV[,.(Name,
+            T_day_1 = ifelse(Treatment == 1 & day_N==1 & comp==1,1,0),
+            T_day_2 = ifelse(Treatment == 1 & day_N==2 & comp==1,1,0),
+            T_day_3 = ifelse(Treatment == 1 & day_N==3 & comp==1,1,0),
+            T_day_4 = ifelse(Treatment == 1 & day_N==4 & comp==1,1,0),
+            T_day_5 = ifelse(Treatment == 1 & day_N==5 & comp==1,1,0),
+            C_day_1 = ifelse(Treatment == 0 & day_N==1 & comp==1,1,0),
+            C_day_2 = ifelse(Treatment == 0 & day_N==2 & comp==1,1,0),
+            C_day_3 = ifelse(Treatment == 0 & day_N==3 & comp==1,1,0),
+            C_day_4 = ifelse(Treatment == 0 & day_N==4 & comp==1,1,0),
+            C_day_5 = ifelse(Treatment == 0 & day_N==5 & comp==1,1,0)
+)][,.(T1=sum(T_day_1),T2=sum(T_day_2),T3=sum(T_day_3),T4=sum(T_day_4),T5=sum(T_day_5),
+      C1=sum(C_day_1),C2=sum(C_day_2),C3=sum(C_day_3),C4=sum(C_day_4),C5=sum(C_day_5)),by=Name][,.(Name, T1,T2,T3,T4,T5,C1,C2,C3,C4,C5,
+                  exp_day_flag = ifelse(T5==1&C5==1,5,
+                   ifelse(T4==1&C4==1,4,
+                   ifelse(T3==1&C3==1,3,
+                   ifelse(T2==1&C2==1,2,
+                   ifelse(T1==1&C1==1,1,0))))),
+                  exp_day_flag_T = ifelse(T5==1,5,
+                   ifelse(T4==1,4,
+                   ifelse(T3==1,3,
+                   ifelse(T2==1,2,
+                   ifelse(T1==1,1,0))))),
+                  exp_day_flag_C = ifelse(C5==1,5,
+                   ifelse(C4==1,4,
+                   ifelse(C3==1,3,
+                   ifelse(C2==1,2,
+                   ifelse(C1==1,1,0))))),
+                   first_exp_day_flag_T = ifelse(T1==1,1,
+                   ifelse(T2==1,2,
+                   ifelse(T3==1,3,
+                   ifelse(T4==1,4,
+                   ifelse(T5==1,5,0))))),
+                  first_exp_day_flag_C = ifelse(C1==1,1,
+                   ifelse(C2==1,2,
+                   ifelse(C3==1,3,
+                   ifelse(C4==1,4,
+                   ifelse(C5==1,5,0)))))
+                  )]
+
+
+
+setkey(d_result_MV,Name)
+setkey(d_day_flag,Name)
+d_result_MV_flag <- NULL
+d_result_MV_flag <- d_result_MV[d_day_flag][,SLEEP_SCORE_POS_SCALE_wt := ifelse(comp==1,ifelse(Treatment==1,SLEEP_SCORE_POS_SCALE/treat_compliance,SLEEP_SCORE_POS_SCALE/ctrl_compliance),0)][,
+                                            BASELINE_MATRIX_SLEEP_SCORE_wt := ifelse(comp==1,ifelse(Treatment==1,BASELINE_MATRIX_SLEEP_SCORE/treat_compliance,BASELINE_MATRIX_SLEEP_SCORE/ctrl_compliance),0)][,
+                                            BASELINE_7_SLEEP_SCORE_POS_SCALE_wt :=
+ifelse(comp==1,ifelse(Treatment==1,BASELINE_7_SLEEP_SCORE_POS_SCALE/treat_compliance,BASELINE_7_SLEEP_SCORE_POS_SCALE/ctrl_compliance),0)
+]
+```
+
+```{r warning=FALSE}
+stargazer(d_result_MV_flag,type='text')
+```
+
+```{r}
+write.table(d_result_MV, file = "C:/ProjectZS/03 RCTA/d_result_MV.txt", sep = "\t",
+            row.names = FALSE, col.names = TRUE)
+```
+
+```{r warning = FALSE}
+stargazer(lm(SLEEP_SCORE_POS_SCALE ~ comp_range, d_result_MV[comp==1 & Treatment == 1 & treat_compliance>0 & ctrl_compliance>0][,comp_range:=ifelse(compliance >= 6, 1, 0)]),
+          lm(SLEEP_SCORE_POS_SCALE ~ comp_range, d_result_MV[comp==1 & Treatment == 0 & treat_compliance>0 & ctrl_compliance>0][,comp_range:=ifelse(compliance >= 6, 1, 0)]),
+          lm(BASELINE_7_SLEEP_SCORE_POS_SCALE ~ comp_range, d_result_MV[comp==1 & treat_compliance>0 & ctrl_compliance>0][,comp_range:=ifelse(compliance >= 6, 1, 0)]),
+          type='text', omit.stat = c("LL","f", "ser"),
+          model.numbers=FALSE,
+          column.labels = c("Post score - Treatment", "Post score - Placebo", "Baseline"), 
+          dep.var.labels.include=FALSE,
+          #dep.var.labels=c("Sleep score - Treatment", "Sleep score - Placebo"), 
+          covariate.labels = c('Compliant Records >= 7'))
+```
+
+```{r mylatextable11, warning=FALSE}
+stargazer(lm(SLEEP_SCORE_POS_SCALE ~ Treatment, d_result_MV[d_result_MV$comp==1]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV[d_result_MV$comp==1]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM, d_result_MV[d_result_MV$comp==1]),
+                    #lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp), d_result_MV[d_result_MV$comp==1]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV[d_result_MV$comp==1]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + Female + factor(Age_grp) + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV[comp==1 & treat_compliance>0 & ctrl_compliance>0]),
+          #lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + Treatment*factor(Age_grp), d_result_MV[d_result_MV$comp==1]),
+          type='text', single.row = TRUE, header=FALSE
+          #, omit.stat = c("LL","f", "ser")
+          ,covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', '# of housemate', 'Baseline # of Sleep hrs', 'Neighbourhood Noise (1-3)', 
+                     'Age: 18-25', 'Age: 26-35', 'Age: 36-45', 'Female', 'Baseline screentime', 'Children (1-Yes, 0-No)', 'Baseline sleep matrix score', 'Week 2'),dep.var.labels="Self reported sleep score (1-7)"
+          #, ci=TRUE, ci.level=0.95
+)
+          #title="Individual compliant observation N=302")
+```
+
+```{r mylatextable11, warning=FALSE}
+stargazer(
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV[comp==1 & treat_compliance>0 & ctrl_compliance>0]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM, d_result_MV[comp==1 & treat_compliance>0 & ctrl_compliance>0]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV[comp==1 & treat_compliance>0 & ctrl_compliance>0]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV[comp==1 & treat_compliance>0 & ctrl_compliance>0]),
+          lm(SLEEP_SCORE_POS_SCALE_wt ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV_flag[comp==1 & treat_compliance>0 & ctrl_compliance>0]),
+          lm(SLEEP_SCORE_POS_SCALE_wt ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE_wt + housemates_numeric + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV_flag[comp==1 & treat_compliance>0 & ctrl_compliance>0]),
+          type='text', single.row = TRUE, header=FALSE
+          , omit.stat = c("LL","f", "ser")
+#          ,covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', '# of housemate', 'Baseline # of Sleep hrs', 'Neighbourhood Noise (1-3)', 
+#                     'Age: 18-25', 'Age: 26-35', 'Age: 36-45', 'Female', 'Baseline screentime', 'Children (1-Yes, 0-No)', 'Baseline sleep matrix score', 'Week 2'),dep.var.labels="Self reported sleep score (1-7)"
+          #, ci=TRUE, ci.level=0.95
+)
+          #title="Individual compliant observation N=302")
+```
+
+```{r mylatextable11, warning=FALSE}
+stargazer(
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + Age_grp + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV[d_result_MV$comp==1]),
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + Age_grp + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + factor(week) + Treatment*factor(week), d_result_MV[d_result_MV$comp==1]),          
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + Age_grp + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + factor(week) + Treatment*Age_grp, d_result_MV[d_result_MV$comp==1]),
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + Age_grp + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + factor(week) + factor(day_N) + Treatment*factor(day_N), d_result_MV[d_result_MV$comp==1]),
+          #lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + Treatment*factor(Age_grp), d_result_MV[d_result_MV$comp==1]),
+          type='text', single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser")
+          ,covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', '# of housemate', 'Baseline # of Sleep hrs', 'Neighbourhood Noise (1-3)', 
+                     'Age: 18-25', 'Age: 26-35', 'Age: 36-45', 'Female', 'Baseline screentime', 'Children (1-Yes, 0-No)', 'Baseline sleep matrix score', 'Week 2', 'Treatment:Week 2','Treatment: Age 18-25', 'Treatment: Age 26-35', 'Treatment: Age 36-45', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Treatment: Day 2', 'Treatment: Day 3', 'Treatment: Day 4', 'Treatment: Day 5'),dep.var.labels="Self reported sleep score (1-7)",model.numbers=FALSE,column.labels = c('Basic Model', 'Treatment:Week', 'Treatment:Age', 'Treatment:Days')
+          #, ci=TRUE, ci.level=0.95
+)
+          #title="Individual compliant observation N=302")
+```
+
+```{r mylatextable11, warning=FALSE}
+stargazer(
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_TIME_TO_SLEEP_SCORE + BASELINE_AWAKE_TIME_SCORE + Female + neighborhood_noise_level_num + factor(BASELINE_Screentime), d_result_MV_flag[exp_day_flag==day_N]),
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE +  BASELINE_TIME_TO_SLEEP_SCORE + BASELINE_AWAKE_TIME_SCORE + Female + neighborhood_noise_level_num + factor(BASELINE_Screentime) + Age_grp + factor(week), d_result_MV_flag[exp_day_flag==day_N]),
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE +  BASELINE_TIME_TO_SLEEP_SCORE + BASELINE_AWAKE_TIME_SCORE + Female + neighborhood_noise_level_num + factor(BASELINE_Screentime) + Age_grp + factor(week) + Treatment*Age_grp, d_result_MV_flag[exp_day_flag==day_N]),
+          
+          type='text', single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser")
+          ,covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', 'Baseline time to sleep', 'Baseline # of times awake at night', 'Female', 'Neighbourhood Noise (1-3)', 'Baseline screentime (1-2hrs)', 'Baseline screentime (2-4hrs)', 'Baseline screentime (4-5hrs)', 'Baseline screentime (>5hrs)', 'Age: 18-25', 'Age: #26-35', 'Age: 36-45','Week #2','Treatment: Age 18-25', 'Treatment: Age 26-35', 'Treatment: Age 36-45')
+          ,dep.var.labels="Self reported sleep score (1-7)",model.numbers=FALSE,column.labels = c('Model 1', 'Model 2', 'Treatment:Age')
+)
+```
+
+```{r}
+d_result_MV_flag_stat <- NULL
+d_result_MV_flag_stat <- d_result_MV_flag[comp==1 & exp_day_flag_T!=0 & exp_day_flag_C!=0][,.(
+                              SLEEP_SCORE_Avg = mean(SLEEP_SCORE_POS_SCALE),
+                              SLEEP_SCORE_max = max(SLEEP_SCORE_POS_SCALE),
+                              SLEEP_SCORE_min = min(SLEEP_SCORE_POS_SCALE),
+                              SLEEP_SCORE_calc1 = ifelse(Treatment == 1, min(SLEEP_SCORE_POS_SCALE), max(SLEEP_SCORE_POS_SCALE)),
+                              SLEEP_SCORE_calc2 = ifelse(Treatment == 1, max(SLEEP_SCORE_POS_SCALE), min(SLEEP_SCORE_POS_SCALE))
+                             ),by=c('Name','Treatment')]
+
+d_result_MV_flag_1 <- NULL
+d_result_MV_flag_1 <- merge(d_result_MV_flag,d_result_MV_flag_stat,by.x=c('Name','Treatment'),
+                     by.y=c('Name','Treatment'), all=TRUE, no.dups = TRUE)
+```
+                     
+```{r mylatextable11, warning=FALSE}
+#m1 <- lm(SLEEP_SCORE_Avg ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + neighborhood_noise_level_num + BASELINE_Screentime + +factor(employment_status_numeric) + Children_binary, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0])
+#m1$vcovCL_ <- vcovCL(m1, cluster = d_result_MV_flag_1[exp_day_flag_T!=0 & exp_day_flag_C!=0]$Name)
+#coeftest(m1, m1$vcovCL_)
+stargazer(
+          
+  lm(SLEEP_SCORE_Avg ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + neighborhood_noise_level_num + BASELINE_Screentime + +factor(employment_status_numeric) + Children_binary, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          lm(SLEEP_SCORE_min ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + Children_binary, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          lm(SLEEP_SCORE_max ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + neighborhood_noise_level_num + BASELINE_Screentime + factor(employment_status_numeric) + Children_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          #lm(SLEEP_SCORE_calc1 ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + neighborhood_noise_level_num + BASELINE_Screentime + factor(employment_status_numeric) + Children_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          #lm(SLEEP_SCORE_calc2 ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + neighborhood_noise_level_num + BASELINE_Screentime + factor(employment_status_numeric) + Children_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_AWAKE_TIME_SCORE + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + Treatment*Age_grp + BASELINE_Screentime + Age_grp, d_result_MV_flag_1[((Treatment==1 & exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_AWAKE_TIME_SCORE + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary+Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_Screentime, d_result_MV_flag_1[((Treatment==1 & first_exp_day_flag_T==day_N) | (Treatment==0 & first_exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          type='text', single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser")
+#          ,covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', 'Baseline # of sleep hrs', 'Baseline # of times awake at night', 'Week #2', 'Baseline Bed time', 'Electronic 15 mins before sleep (Yes/ No)', 'Neighbourhood Noise (1-3)', 'Age: 18-25', 'Age: #26-35', 'Age: 36-45','Baseline screentime','Employed', 'Children (yes/ No)', 'Treatment: Baseline Sleep score (1-)', 'Treatment: Age 18-25', 'Treatment: Age 26-35', 'Treatment: Age 36-45')
+#          ,dep.var.labels="Self reported sleep score (1-7)"
+,model.numbers=FALSE,column.labels = c('Avg Score', 'Min Score', 'Max Score','Last Obs', 'First Obs'), dep.var.labels.include=FALSE
+)
+```
+```{r mylatextable11, warning=FALSE}
+stargazer(
+          
+          lm(SLEEP_SCORE_Avg ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + neighborhood_noise_level_num + BASELINE_Screentime + +factor(employment_status_numeric) + Children_binary, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          lm(SLEEP_SCORE_calc1 ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + neighborhood_noise_level_num + BASELINE_Screentime + factor(employment_status_numeric) + Children_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          lm(SLEEP_SCORE_calc2 ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + neighborhood_noise_level_num + BASELINE_Screentime + factor(employment_status_numeric) + Children_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0]),
+          
+          type='text', single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser")
+          ,covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', 'Baseline # of sleep hrs', 'Week #2', 'Baseline Bed time', 'Electronic 15 mins before sleep (Yes/ No)', 'Neighbourhood Noise (1-3)','Baseline screentime','Employed', 'Children (yes/ No)', 'Treatment: Baseline Sleep score (1-)')
+#          ,dep.var.labels="Self reported sleep score (1-7)"
+,model.numbers=FALSE,column.labels = c('Avg Score', 'Max C:Min T Score', 'Min C:Max T Score'), dep.var.labels.include=FALSE
+)
+```
+
+```{r}
+library(ggplot2)
+library(ggiraph)
+library(ggiraphExtra)
+library(plyr)
+#m_hte1
+
+m_hte1 <- lm(SLEEP_SCORE_Avg ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + neighborhood_noise_level_num + BASELINE_Screentime + +factor(employment_status_numeric) + Children_binary, data = data)
+
+m_hte1 <- lm(SLEEP_SCORE_min ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_SLEEP_HOURS_NUM + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + Children_binary, d_result_MV_flag_1[((Treatment==1&exp_day_flag_T==day_N) | (Treatment==0 & exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0])
+
+m_hte1 <- lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_AWAKE_TIME_SCORE + factor(week) + BASELINE_BED_TIME_NUM + BASELINE_ELECTRONICS_15_MIN_BEFORE_binary+Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE + BASELINE_Screentime, d_result_MV_flag_1[((Treatment==1 & first_exp_day_flag_T==day_N) | (Treatment==0 & first_exp_day_flag_C==day_N)) & exp_day_flag_T!=0 & exp_day_flag_C!=0])
+
+library(interplot)
+
+interplot(m = m_hte1, var1 = "Treatment", var2 = "BASELINE_7_SLEEP_SCORE_POS_SCALE") + 
+  # Add labels for X and Y axes
+    xlab("Baseline Sleep score (0-6)") +
+    ylab("Treatment Effect") +
+  # Change the background
+    theme_bw() +
+  # Add the title
+    ggtitle("Candidate model - Compliance (N=78)\nFirst Obs of C/ T") +
+    theme(plot.title = element_text(face="bold")) +
+  # Add a horizontal line at y = 0
+    geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_point(size = 2, color = "red")
+
+```
+
+```{r warning=FALSE}
+stargazer(lm(SLEEP_SCORE_POS_SCALE ~ Treatment, d_result_MV),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM, d_result_MV),
+                    #lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp), d_result_MV[d_result_MV$comp==1]),
+          lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp) + Female + BASELINE_Screentime + Children_binary + BASELINE_MATRIX_SLEEP_SCORE + factor(week), d_result_MV),
+          type='text', single.row = TRUE, omit.stat = c("LL","f", "ser"),title="Intent to treat",covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', '# of housemate', 'Baseline # of Sleep hrs', 'Neighbourhood Noise (1-3)', 
+                    'Age: 18-25', 'Age: 26-35', 'Age: 36-45', 'Female', 'Baseline screentime', 'Children (1-Yes, 0-No)', 'Baseline sleep matrix score', 'Week 2'),dep.var.labels="Self reported sleep score (1-7)")
+```
+
+```{r warning=FALSE}
+d_result_MV[,.(comp_N = sum(ifelse(comp==1,1,0)), non_comp_N = sum(ifelse(comp==0,1,0))),by=Treatment]
+```
+```{r comment = "" , message=FALSE, warning=FALSE, results="asis" , xtable.comment = FALSE}
+IV1 = lm(comp ~ Treatment, d_result_MV)
+IV2 = lm(comp ~ Treatment + BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV)
+IV3 = lm(comp ~ Treatment + BASELINE_Screentime + BASELINE_MATRIX_SLEEP_SCORE + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + Children_binary + Age_grp+BASELINE_WAKE_UP_TIME_NUM, d_result_MV)
+IV4 = lm(comp ~ Treatment + BASELINE_MATRIX_SLEEP_SCORE + housemates_numeric + Children_binary + Age_grp+BASELINE_WAKE_UP_TIME_NUM, d_result_MV)
+stargazer(IV1,IV2,IV3,type='text', single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser")
+          #,covariate.labels = c('Treatment', 'Baseline screentime', 'Baseline sleep matrix score', 'Baseline Sleep score (1-7)', '# of housemate', 'Children (1-Yes, 0-No)', 'Age: 18-25', 'Age: 26-35', 'Age: 36-45', 'Baseline wakeup time'),dep.var.labels="Compliance"
+          )
+```
+
+```{r warning=FALSE}
+IV=IV2
+stargazer(lm(SLEEP_SCORE_POS_SCALE ~ predict(IV), d_result_MV),
+          lm(SLEEP_SCORE_POS_SCALE ~ predict(IV) + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_MV),
+          lm(SLEEP_SCORE_POS_SCALE ~ predict(IV) + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM, d_result_MV),
+                    #lm(SLEEP_SCORE_POS_SCALE ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM + neighborhood_noise_level_num + factor(Age_grp), d_result_MV[d_result_MV$comp==1]),
+          lm(SLEEP_SCORE_POS_SCALE ~ predict(IV) + BASELINE_7_SLEEP_SCORE_POS_SCALE + housemates_numeric + BASELINE_SLEEP_HOURS_NUM, d_result_MV),
+          type='text', single.row = TRUE,title="Intent to treat")
+```
+
+```{r}
+d_result_unit <- NULL
+d_result_unit <- d_result_MV[d_result_MV$treat_compliance>0 & d_result_MV$ctrl_compliance>0 & attr==0][,.(
+                         SLEEP_SCORE_POS_SCALE_mean = mean(SLEEP_SCORE_POS_SCALE), 
+                         MATRIX_SLEEP_SCORE_mean = mean(MATRIX_SLEEP_SCORE)), by = c('Name','Treatment','compliance','treat_compliance','ctrl_compliance','Children_binary','Children_under_5_binary','Block_ID_num','BASELINE_BED_TIME_NUM','BASELINE_Screentime','BASELINE_Perc_Gap_Bedtime_7','Female','Age','Age_grp','house_type_num','neighborhood_num','neighborhood_noise_level_num','highest_education_num','employment_status_numeric','housemates_numeric','BASELINE_WAKE_UP_TIME_NUM','BASELINE_TIME_TO_SLEEP_SCORE','BASELINE_AWAKE_TIME_SCORE','BASELINE_EARLY_WAKE_TIME_SCORE','BASELINE_SLEEP_HOURS_NUM','BASELINE_MATRIX_SLEEP_SCORE','BASELINE_7_SLEEP_SCORE_POS_SCALE','Random_assignment')]
+```
+
+```{r warning = FALSE}
+m1 <- lm(SLEEP_SCORE_POS_SCALE_mean ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_unit)
+m2 <- lm(SLEEP_SCORE_POS_SCALE_mean ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + Children_binary + BASELINE_MATRIX_SLEEP_SCORE, d_result_unit)
+m3 <- lm(SLEEP_SCORE_POS_SCALE_mean ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + Children_binary + BASELINE_MATRIX_SLEEP_SCORE, d_result_unit)
+m4 <- lm(SLEEP_SCORE_POS_SCALE_mean ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + Children_binary + BASELINE_MATRIX_SLEEP_SCORE +BASELINE_WAKE_UP_TIME_NUM + factor(Random_assignment) +BASELINE_Screentime + neighborhood_noise_level_num, d_result_unit)
+
+stargazer(m1,m2,m3,m4,
+          type = 'text', single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser")
+          ,covariate.labels = c('Treatment', 'Baseline Sleep score (1-7)', 'Children (1-Yes, 0-No)', 'Baseline sleep matrix score', 'Baseline Wake up Time', 'Treatment in week 1', 'Baseline screentime', 'Neighbourhood Noise (1-3)')
+          , dep.var.labels="Self reported sleep score (1-7)")
+```
+
+```{r warning = FALSE}
+stargazer(
+lm(SLEEP_SCORE_POS_SCALE_mean ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + Children_binary + BASELINE_MATRIX_SLEEP_SCORE +BASELINE_WAKE_UP_TIME_NUM + factor(Random_assignment) +BASELINE_Screentime + neighborhood_noise_level_num + Treatment*BASELINE_7_SLEEP_SCORE_POS_SCALE, d_result_unit),
+
+lm(SLEEP_SCORE_POS_SCALE_mean ~ Treatment + BASELINE_7_SLEEP_SCORE_POS_SCALE + Children_binary + BASELINE_MATRIX_SLEEP_SCORE +BASELINE_WAKE_UP_TIME_NUM + factor(Random_assignment) +BASELINE_Screentime + neighborhood_noise_level_num + Treatment*Age_grp, d_result_unit),
+          type = 'text', single.row = TRUE, header=FALSE, omit.stat = c("LL","f", "ser"),
+          covariate.labels = c('Treatment', 'Baseline Sleep score (0-6)', 'Children (yes/ No)', 'Baseline Sleep Matrix (0-12)', 'Baseline wake up time', 'Treatment in Week #1','Baseline screentime', 'Neighbourhood Noise (1-3)', 'Treatment: Baseline Sleep score (0-6)', 'Age 18-25', 'Age 26-35', 'Age 36-45', 'Treatment: Age 18-25', 'Treatment: Age 26-35', 'Treatment: Age 36-45'),
+          dep.var.labels="Self reported sleep score (0-6)",
+model.numbers=FALSE,column.labels = c('Treatment:Baseline sleep Score', 'Treatment:Age'))
+```

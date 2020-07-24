@@ -1,0 +1,87 @@
+---
+title: "w241eda"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(data.table)
+library(readxl)
+library(stargazer)
+library(tidyr)
+library(HH)
+library(ggplot2)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## 1. Load and view data
+
+```{r}
+library(readxl)
+xl_data <- read_excel("./data/w_241_Final_v0.6.xlsx", 
+    sheet = "Morning Responsiveness Study Ce")
+d <- data.table(xl_data)
+```
+
+```{r}
+names(d)
+```
+
+
+```{r}
+d$week_day_and_group <- paste(d$Week_Day, d$Random_assignment, sep = " : Group ")
+```
+
+
+
+```{r}
+
+library(dplyr)
+dat = d %>% group_by(week_day_and_group, Category) %>%
+      summarise(participant_count = n())
+dat
+```
+
+```{r}
+dat <- dat[order(dat$week_day_and_group, desc(dat$Category)),]
+dat
+```
+
+order=desc(Category),
+
+```{r}
+ggplot(dat, aes(fill=Category, y=participant_count, x=week_day_and_group)) + 
+   geom_bar(position = "stack", stat="identity") + coord_flip() + ggtitle("Compliance by Week and Group")
+```
+
+
+```{r}
+dat_quality <- d %>% group_by(week_day_and_group, SLEEP_QUALITY) %>%
+      summarise(participant_count = n())
+dat_quality
+```
+
+```{r}
+data_l <- spread(dat_quality, key=SLEEP_QUALITY, value=participant_count)
+row.names(data_l) <- data_l$week_day_and_group
+```
+
+```{r}
+
+data_l <- data_l[c("week_day_and_group", "Worst sleep of my entire life", "Below Average", "Slightly below average", "Just the usual", "Slightly above average", "Above Average", "Best sleep of my entire life")]
+data_l
+```
+
+```{r}
+require(grid)
+require(lattice)
+require(latticeExtra)
+require(HH)
+likert(week_day_and_group ~ ., data=data_l, horizontal = TRUE, aspect=1, padding.text=3,
+       main="Sleep Quality Selection",
+       auto.key=list(space="right", columns=1, reverse=TRUE, padding.text=3),
+       sub="Quality Rating", xlim=c(-20,-10,0,10,20), strip=FALSE)
+```
+
+
+
+
